@@ -204,6 +204,7 @@ async function run() {
       res.send(result);
     });
 
+// like dislike condition
 
     app.patch('/allSurvey/dislike/:id', verifyToken, async (req, res) => {
       try {
@@ -253,10 +254,59 @@ async function run() {
           res.status(500).send({ success: false, message: 'Internal server error.' });
       }
   });
+
+
+  // condition for vote update
+
+    app.patch('/allSurvey/YesVote/:id', verifyToken, async (req, res) => {
+      try {
+          const id = req.params.id;
+          const filter = { _id: new ObjectId(id) };
+  
+          const { yesVote } = req.body;
+  
+          const updatedDoc = {
+              $set: {
+                yesVote : yesVote
+              }
+          };
+  
+          const result = await serveyCollection.updateOne(filter, updatedDoc);
+  
+          if (result.modifiedCount > 0) {
+              res.send({ success: true, modifiedCount: result.modifiedCount });
+          } 
+      } catch (error) {
+          res.status(500).send({ success: false, message: 'Internal server error.' });
+      }
+  });
+
+    app.patch('/allSurvey/NoVote/:id', verifyToken, async (req, res) => {
+      try {
+          const id = req.params.id;
+          const filter = { _id: new ObjectId(id) };
+  
+          const { NoVote } = req.body;
+  
+          const updatedDoc = {
+              $set: {
+                NoVote : NoVote
+              }
+          };
+  
+          const result = await serveyCollection.updateOne(filter, updatedDoc);
+  
+          if (result.modifiedCount > 0) {
+              res.send({ success: true, modifiedCount: result.modifiedCount });
+          } 
+      } catch (error) {
+          res.status(500).send({ success: false, message: 'Internal server error.' });
+      }
+  });
   
 
 
-
+// condition for publish umpublish
 
     app.put('/survey/unpublish/:id', verifyToken, async (req, res) => {
     try {
@@ -330,8 +380,25 @@ async function run() {
     }
 });
 
+// survey response condition
 
-    
+app.patch('/allSurvey/UpdateVote/:id', async (req, res) => {
+  const data = req.body;
+  const id = req.params.id;
+  const filter = { _id: new ObjectId(id) }
+  const updatedDoc = {
+    $set: {
+      comment: data.comment,
+     responseUserName: data.responseUserName,
+     responseUserEmail: data.responseUserEmail,
+    }
+  }
+
+  const result = await serveyCollection.updateOne(filter, updatedDoc)
+  res.send(result);
+})
+
+
 
     app.post('/survey', verifyToken, async (req, res) => {
       const item = req.body;
@@ -339,17 +406,27 @@ async function run() {
       res.send(result);
     });
 
-    app.post('/responseSurveyor', verifyToken, async (req, res) => {
-      const item = req.body;
-      const result = await ResponseCollection.insertOne(item);
-      res.send(result);
+    // data sorting
+    app.get('/sortedByVote', async (req, res) => {
+      try {
+        const query = {};
+        const options = {
+          sort: {
+            yesVote: -1 // Use -1 for descending order
+          }
+        };
+    
+        const cursor = serveyCollection.find(query, options);
+        const result = await cursor.toArray();
+        res.json(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send('Internal Server Error');
+      }
     });
+    
 
-    app.get('/responseSurveyor', async (req, res) => {
-      const result = await ResponseCollection.find().toArray();
-      res.send(result);
-    });
-
+  
 
  // payment intent
  app.post('/create-payment-intent', async (req, res) => {
