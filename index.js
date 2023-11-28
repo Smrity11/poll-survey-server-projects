@@ -34,6 +34,7 @@ async function run() {
     const serveyCollection = client.db("surveyDb").collection("surveyAllData");
      const userCollection = client.db("surveyDb").collection("users");
      const paymentCollection = client.db("surveyDb").collection("payments");
+     const ResponseCollection = client.db("surveyDb").collection("response");
 
 
           // jwt related api
@@ -124,21 +125,21 @@ async function run() {
       res.send(result);
     })
 
-    // app.get('/users/surveyor/:email', verifyToken, async (req, res) => {
-    //   const email = req.params.email;
+    app.get('/users/surveyor/:email', verifyToken, async (req, res) => {
+      const email = req.params.email;
 
-    //   if (email !== req.decoded.email) {
-    //     return res.status(403).send({ message: 'forbidden access' })
-    //   }
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: 'forbidden access' })
+      }
 
-    //   const query = { email: email };
-    //   const user = await userCollection.findOne(query);
-    //   let surveyor = false;
-    //   if (user) {
-    //     surveyor = user?.role === 'surveyor';
-    //   }
-    //   res.send({ surveyor });
-    // })
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      let surveyor = false;
+      if (user) {
+        surveyor = user?.role === 'surveyor';
+      }
+      res.send({ surveyor });
+    })
 
 
     // users related api
@@ -171,6 +172,30 @@ async function run() {
       const result = await serveyCollection.findOne(query);
       res.send(result);
     })
+    app.get('/payments', async (req, res) => {
+      const result = await paymentCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.patch('/allSurvey/:id', async (req, res) => {
+      const data = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) }
+      const updatedDoc = {
+        $set: {
+
+          title: data.title,
+          category: data.category,
+          deadline: data.deadline,
+          description: data.description ,
+        }
+      }
+
+      const result = await serveyCollection.updateOne(filter, updatedDoc)
+      res.send(result);
+    })
+
+
 
     app.get('/survey', async (req, res) => {
       const email = req.query.email;
@@ -180,29 +205,33 @@ async function run() {
     });
 
 
-    app.put('/allSurvey/dislike/:id', verifyToken, async (req, res) => {
+    app.patch('/allSurvey/dislike/:id', verifyToken, async (req, res) => {
       try {
-          const id = req.params.id;
-          const filter = { _id: new ObjectId(id) };
-  
-          const { dislike } = req.body;
-  
-          const updatedDoc = {
-              $set: {
-                 like : dislike
-              }
-          };
-  
-          const result = await serveyCollection.updateOne(filter, updatedDoc);
-  
-          if (result.modifiedCount > 0) {
-              res.send({ success: true, modifiedCount: result.modifiedCount });
-          } 
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+    
+        const { dislike } = req.body;
+    
+        const updatedDoc = {
+          $set: {
+            dislike: dislike 
+          }
+        };
+    
+        const result = await serveyCollection.updateOne(filter, updatedDoc);
+    
+        if (result.modifiedCount > 0) {
+          res.send({ success: true, modifiedCount: result.modifiedCount });
+        } else {
+          res.send({ success: false, message: 'No survey found with the provided ID.' });
+        }
       } catch (error) {
-          res.status(500).send({ success: false, message: 'Internal server error.' });
+        res.status(500).send({ success: false, message: 'Internal server error.' });
       }
-  });
-    app.put('/allSurvey/like/:id', verifyToken, async (req, res) => {
+    });
+    
+    
+    app.patch('/allSurvey/like/:id', verifyToken, async (req, res) => {
       try {
           const id = req.params.id;
           const filter = { _id: new ObjectId(id) };
@@ -310,7 +339,16 @@ async function run() {
       res.send(result);
     });
 
+    app.post('/responseSurveyor', verifyToken, async (req, res) => {
+      const item = req.body;
+      const result = await ResponseCollection.insertOne(item);
+      res.send(result);
+    });
 
+    app.get('/responseSurveyor', async (req, res) => {
+      const result = await ResponseCollection.find().toArray();
+      res.send(result);
+    });
 
 
  // payment intent
