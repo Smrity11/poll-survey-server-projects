@@ -3,6 +3,7 @@ const app = express();
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
+const moment = require('moment');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const port = process.env.PORT || 5000;
@@ -75,6 +76,18 @@ async function run() {
       next();
     }
 
+     const verifySurveyor = async (req, res, next) => {
+      const email = req.decoded.email;
+      console.log("surveyor email",email);
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      const isSurveyor = user?.role === 'Surveyor';
+      if (!isSurveyor) {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
+      next();
+    }
+
 
 
     app.get('/users/admin/:email', verifyToken, async (req, res) => {
@@ -106,7 +119,7 @@ async function run() {
       res.send(result);
     })
 
-    app.patch('/users/serveyor/:id', verifyToken, verifyAdmin, async (req, res) => {
+    app.patch('/users/surveyor/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
@@ -116,7 +129,8 @@ async function run() {
       }
       const result = await userCollection.updateOne(filter, updatedDoc);
       res.send(result);
-    })
+    });
+    
 
     app.delete('/users/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
@@ -174,6 +188,10 @@ async function run() {
     })
     app.get('/payments', async (req, res) => {
       const result = await paymentCollection.find().toArray();
+      res.send(result);
+    });
+    app.get('/commentDetails', async (req, res) => {
+      const result = await ResponseCollection.find().toArray();
       res.send(result);
     });
 
@@ -263,11 +281,11 @@ async function run() {
           const id = req.params.id;
           const filter = { _id: new ObjectId(id) };
   
-          const { yesVote } = req.body;
+          const { voteYes } = req.body;
   
           const updatedDoc = {
               $set: {
-                yesVote : yesVote
+                voteYes : voteYes
               }
           };
   
@@ -286,11 +304,11 @@ async function run() {
           const id = req.params.id;
           const filter = { _id: new ObjectId(id) };
   
-          const { NoVote } = req.body;
+          const { voteNo } = req.body;
   
           const updatedDoc = {
               $set: {
-                NoVote : NoVote
+                voteNo : voteNo
               }
           };
   
@@ -382,26 +400,36 @@ async function run() {
 
 // survey response condition
 
-app.patch('/allSurvey/UpdateVote/:id', async (req, res) => {
-  const data = req.body;
-  const id = req.params.id;
-  const filter = { _id: new ObjectId(id) }
-  const updatedDoc = {
-    $set: {
-      comment: data.comment,
-     responseUserName: data.responseUserName,
-     responseUserEmail: data.responseUserEmail,
-    }
-  }
+// app.patch('/allSurvey/UpdateVote/:id', async (req, res) => {
+//   const data = req.body;
+//   const id = req.params.id;
+//   const filter = { _id: new ObjectId(id) }
+//   const updatedDoc = {
+//     $set: {
+//       comment: data.comment,
+//      responseUserName: data.responseUserName,
+//      responseUserEmail: data.responseUserEmail,
+//     }
+//   }
 
-  const result = await serveyCollection.updateOne(filter, updatedDoc)
-  res.send(result);
-})
+//   const result = await serveyCollection.updateOne(filter, updatedDoc)
+//   res.send(result);
+// })
 
 
+
+    app.post('/responseDetails', verifyToken, async (req, res) => {
+      const item = req.body;
+      const result = await ResponseCollection.insertOne(item);
+      res.send(result);
+    });
 
     app.post('/survey', verifyToken, async (req, res) => {
       const item = req.body;
+      
+      // Add creation time to the survey 
+      item.creationTime = moment().format('MMMM Do YYYY, h:mm:ss a');
+    
       const result = await serveyCollection.insertOne(item);
       res.send(result);
     });
@@ -412,7 +440,7 @@ app.patch('/allSurvey/UpdateVote/:id', async (req, res) => {
         const query = {};
         const options = {
           sort: {
-            yesVote: -1 // Use -1 for descending order
+            voteYes: -1 // Use -1 for descending order
           }
         };
     
